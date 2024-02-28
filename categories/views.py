@@ -1,44 +1,38 @@
-from rest_framework import status
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
+from rest_framework import mixins
+from rest_framework import generics
 
 from categories.models import Category
 from categories.serializers import CategorySerializer
 
 
-@api_view(['GET', 'POST'])
-def category_list(request, format=None):
-    if request.method == 'GET':
-        snippets = Category.objects.all()
-        serializer = CategorySerializer(snippets, many=True)
-        return Response(serializer.data)
+class CategoryList(
+    mixins.ListModelMixin, mixins.CreateModelMixin, generics.GenericAPIView
+):
 
-    elif request.method == 'POST':
-        serializer = CategorySerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
 
 
-@api_view(['GET', 'PUT', 'DELETE'])
-def category_detail(request, pk, format=None):
-    try:
-        snippet = Category.objects.get(pk=pk)
-    except Category.DoesNotExist:
-        return Response(status=status.HTTP_404_NOT_FOUND)
+class CategoryDetail(
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    generics.GenericAPIView,
+):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
 
-    if request.method == 'GET':
-        serializer = CategorySerializer(snippet)
-        return Response(serializer.data)
+    def get(self, request, *args, **kwargs):
+        return self.retrieve(request, *args, **kwargs)
 
-    elif request.method == 'PUT':
-        serializer = CategorySerializer(snippet, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def put(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
 
-    elif request.method == 'DELETE':
-        snippet.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+    def delete(self, request, *args, **kwargs):
+        return self.destroy(request, *args, **kwargs)
