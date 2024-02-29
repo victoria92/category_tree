@@ -4,6 +4,8 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
+
 
 from categories.models import Category
 from categories.serializers import CategorySerializer
@@ -58,4 +60,44 @@ class ImageUploadView(APIView):
         category = Category.objects.get(pk=pk)
         category.image = image
         category.save()
-        return Response(status=204)
+        return Response(status=status.HTTP_201_CREATED)
+
+
+class CategoryTreeListing(generics.ListAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+    def get_queryset(self):
+        query_type = self.kwargs["type"]
+        category = Category.objects.get(pk=self.kwargs["pk"])
+        if query_type == "subcategories":
+            return Category.objects.filter(parent__id=self.kwargs["pk"])
+        elif query_type == "siblings":
+            return Category.objects.filter(parent=category.parent)
+        elif query_type == "leaves":
+            categories_checked = [category]
+            result = []
+            while categories_checked:
+                current = categories_checked[0]
+                children = list(Category.objects.filter(parent=current))
+                if children == []:
+                    result.append(current)
+                categories_checked = categories_checked[1:] + children
+            return result
+        elif query_type == "descendants":
+            categories_checked = [category]
+            result = []
+            while categories_checked:
+                current = categories_checked[0]
+                result.append(current)
+                children = list(Category.objects.filter(parent=current))
+                categories_checked = categories_checked[1:] + children
+            return result
+        else:
+            raise ValidationError(
+                {
+                    "Invalid search type": "{} is not a valid search type option".format(
+                        query_type
+                    )
+                }
+            )
