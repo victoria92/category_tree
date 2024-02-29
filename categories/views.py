@@ -1,5 +1,8 @@
 from rest_framework import mixins
 from rest_framework import generics
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from categories.models import Category
 from categories.serializers import CategorySerializer
@@ -36,3 +39,14 @@ class CategoryDetail(
 
     def delete(self, request, *args, **kwargs):
         return self.destroy(request, *args, **kwargs)
+
+
+class ImageUploadView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+
+    def put(self, request, pk):
+        image = request.data["file"]
+        category = Category.objects.get(pk=pk)
+        category.image = image
+        category.save()
+        return Response(status=204)
