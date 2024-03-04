@@ -5,10 +5,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
+from django.db.models import Q
 
-
-from categories.models import Category
-from categories.serializers import CategorySerializer
+from categories.models import Category, Similarity
+from categories.serializers import CategorySerializer, SimilaritySerializer
 
 
 class CategoryList(
@@ -39,12 +39,13 @@ class CategoryDetail(
 
     def post(self, request, *args, **kwargs):
         request.data["parent"] = kwargs["pk"]
-        serializer = CategorySerializer(data=request.data)
+        serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    # TODO Add patch method
     def put(self, request, *args, **kwargs):
         return self.update(request, *args, **kwargs)
 
@@ -101,3 +102,68 @@ class CategoryTreeListing(generics.ListAPIView):
                     )
                 }
             )
+
+
+class SimilarityList(
+    mixins.ListModelMixin, mixins.CreateModelMixin, generics.GenericAPIView
+):
+
+    queryset = Similarity.objects.all()
+    serializer_class = SimilaritySerializer
+
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        if Similarity.objects.filter(
+            first__id=request.data["first"], second__id=request.data["second"]
+        ):
+            return Response(status=status.HTTP_208_ALREADY_REPORTED)
+        if Similarity.objects.filter(
+            first__id=request.data["second"], second__id=request.data["first"]
+        ):
+            return Response(status=status.HTTP_208_ALREADY_REPORTED)
+        return self.create(request, *args, **kwargs)
+
+
+class SimilarityDetail(
+    generics.ListAPIView,
+):
+    queryset = Similarity.objects.all()
+    serializer_class = SimilaritySerializer
+
+    def _get_similarity(self, first, second):
+        similarity = Similarity.objects.filter(
+            first__id=first, second__id=second
+        ).first()
+        if similarity is None:
+            similarity = Similarity.objects.filter(
+                first__id=second, second__id=first
+            ).first()
+        return similarity
+
+    def get_queryset(self):
+        category_id = self.kwargs.get("pk", None)
+        similarities = Similarity.objects.filter(
+            Q(first__id=category_id) | Q(second__id=category_id)
+        )
+        return similarities
+
+    def post(self, request, *args, **kwargs):
+        similarity = self._get_similarity(kwargs["pk"], request.data["category"])
+        if similarity:
+            return Response(status=status.HTTP_208_ALREADY_REPORTED)
+
+        data = {"first": kwargs["pk"], "second": request.data["category"]}
+        serializer = self.serializer_class(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request, *args, **kwargs):
+        similarity = self._get_similarity(kwargs["pk"], request.data["category"])
+        if similarity:
+            similarity.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_404_NOT_FOUND)

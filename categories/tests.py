@@ -2,10 +2,10 @@ import json
 import tempfile
 from PIL import Image
 
-from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
-from categories.models import Category
+
+from categories.models import Category, Similarity
 
 
 class CategoryTests(APITestCase):
@@ -70,7 +70,7 @@ class CategoryTests(APITestCase):
         response = self.client.put("/categories/1/upload/", data, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIsNotNone(category.image)
-        # TODO Check why this is not working
+        category = Category.objects.get()
         category.image.delete(True)
 
 
@@ -121,3 +121,35 @@ class CategoriesListingTest(APITestCase):
         self.assertEqual(Category.objects.count(), 5)
         response = self.client.get("/categories/2/sfweggr/", format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class SimilarityTest(APITestCase):
+    def setUp(self):
+        category_names = ["банани", "ябълки", "круши", "ягоди", "малини"]
+        for name in category_names:
+            data = {"name": name, "description": "text"}
+            self.client.post("/categories/", data, format="json")
+
+    def test_add_similarity(self):
+        count_before = Similarity.objects.count()
+        response = self.client.post(
+            "/similarity/", {"first": 1, "second": 2}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Similarity.objects.count(), count_before + 1)
+
+    def test_list_all_similarities(self):
+        count_before = Similarity.objects.count()
+        self.client.post("/similarity/", {"first": 1, "second": 2}, format="json")
+        self.client.post("/similarity/", {"first": 2, "second": 4}, format="json")
+        response = self.client.get("/similarity/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(json.loads(response.getvalue())), 2)
+
+    def test_add_similarity_for_category(self):
+        count_before = Similarity.objects.count()
+        response = self.client.post(
+            "/categories/1/similar/", {"category": 2}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Similarity.objects.count(), count_before + 1)

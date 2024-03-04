@@ -9,3 +9,13 @@ class Category(models.Model):
 
     def __str__(self):
         return "{} id {}".format(self.name, self.id)
+
+
+class Similarity(models.Model):
+    first = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="first")
+    second = models.ForeignKey(
+        Category, on_delete=models.CASCADE, related_name="second"
+    )
+
+    def __str__(self):
+        return "{} ~ {}".format(self.first.id, self.second.id)
