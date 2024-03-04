@@ -153,3 +153,24 @@ class SimilarityTest(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Similarity.objects.count(), count_before + 1)
+
+    def test_list_similarities_for_category(self):
+        count_before = Similarity.objects.count()
+        self.client.post("/similarity/", {"first": 1, "second": 2}, format="json")
+        self.client.post("/similarity/", {"first": 2, "second": 4}, format="json")
+        self.client.post("/similarity/", {"first": 4, "second": 1}, format="json")
+        response = self.client.get("/categories/1/similar/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(json.loads(response.getvalue())), 2)
+
+    def test_remove_similarity_for_category(self):
+        count_before = Similarity.objects.count()
+        self.client.post("/similarity/", {"first": 1, "second": 2}, format="json")
+        self.client.post("/similarity/", {"first": 2, "second": 4}, format="json")
+        response = self.client.patch(
+            "/categories/1/similar/", {"category": 2}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        response = self.client.get("/similarity/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Similarity.objects.count(), count_before + 1)
