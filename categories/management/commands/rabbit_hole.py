@@ -41,5 +41,5 @@ class Command(BaseCommand):
             islands.add(tuple(sorted(distances.keys())))
 
         max_path = max(paths, key=len)
-        print("Longest path: {}".format(max_path))
-        print(islands)
+        self.stdout.write("Longest rabbit hole: {}".format(max_path))
+        self.stdout.write("Rabbit islands: {}".format(islands))

@@ -1,7 +1,10 @@
 import json
 import tempfile
 from PIL import Image
+from io import StringIO
 
+from django.test import TestCase
+from django.core import management
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -204,3 +207,25 @@ class SimilarityTest(APITestCase):
             "/categories/1/similar/", {"category": 4}, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class RabbitHoleTests(TestCase):
+    def setUp(self):
+        category_names = ["банани", "ябълки", "круши", "ягоди", "малини"]
+        for name in category_names:
+            data = {"name": name, "description": "text"}
+            Category.objects.create(**data)
+        Similarity.objects.create(
+            first=Category.objects.get(pk=1), second=Category.objects.get(pk=2)
+        )
+        Similarity.objects.create(
+            first=Category.objects.get(pk=2), second=Category.objects.get(pk=3)
+        )
+
+    def test_command_style(self):
+        out = StringIO()
+        management.call_command("rabbit_hole", stdout=out)
+        self.assertEquals(
+            out.getvalue(),
+            "Longest rabbit hole: [3, 2, 1]\nRabbit islands: {(1, 2, 3), (4,), (5,)}\n",
+        )
